@@ -149,6 +149,10 @@ namespace PRoConEvents
 <p>Developed by xfileFIN</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>0.0.0.3 (02.04.2017)</h4>
+	- Fixed: forgot to update players list on join<br/>
+</blockquote>
+
 <blockquote><h4>0.0.0.2 (02.04.2017)</h4>
 	- Cleaned up the code ALOT<br/>
 	- Improved performance<br/>
@@ -211,7 +215,7 @@ namespace PRoConEvents
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion) {
             server_host = strHostName;
             server_port = strPort;
-            this.RegisterEvents(this.GetType().Name, "OnListPlayers","OnPlayerLeft","OnGlobalChat","OnTeamChat","OnSquadChat","OnRoundOverPlayers","OnRoundOverTeamScores","OnLevelLoaded");
+            this.RegisterEvents(this.GetType().Name, "OnPlayerAuthenticated","OnListPlayers","OnPlayerLeft","OnGlobalChat","OnTeamChat","OnSquadChat","OnRoundOverPlayers","OnRoundOverTeamScores","OnLevelLoaded");
         }
         #endregion
 
@@ -231,6 +235,10 @@ namespace PRoConEvents
 
         #region Server Events
         #region Player Events
+        public override void OnPlayerAuthenticated(string soldierName, string guid) {
+            ServerCommand("listPlayers", "all");
+        }
+
         public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset) {
             this._currentPlayers = players;
         }
