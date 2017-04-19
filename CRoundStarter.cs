@@ -34,7 +34,7 @@ namespace PRoConEvents
             PRIVATE,
             ADMIN,
             NONE
-        } 
+        }
         #endregion
 
         #region Variables
@@ -44,6 +44,8 @@ namespace PRoConEvents
         private bool _debugMode;
         private bool _autoStartAfterDelay;
         private bool _autoStart;
+        private bool _noCancelAllowed;
+        private bool _displaySwitching;
         private int _autoStartDelay;
         private string _cancelCommand;
 
@@ -61,10 +63,12 @@ namespace PRoConEvents
 
             this._autoStartAfterDelay = false;
             this._autoStart = false;
+            this._noCancelAllowed = false;
+            this._displaySwitching = true;
             this._autoStartDelay = 20;
             this._cancelCommand = "cancelRS";
             this._currentPlayers = new List<CPlayerInfo>();
-        } 
+        }
         #endregion
 
         #region Base Helpers
@@ -120,7 +124,7 @@ namespace PRoConEvents
             return "Round Starter";
         }
         public string GetPluginVersion() {
-            return "0.0.0.2";
+            return "0.0.0.4";
         }
         public string GetPluginAuthor() {
             return "xfileFIN";
@@ -141,6 +145,8 @@ namespace PRoConEvents
 <p><b>Automatically early start next round</b> - Whether the automatic round start is on/off!</p>
 <h3>Automatic Round Start</h3>
 <p><b>Wait Time [Seconds]</b> - How many seconds to wait until automatically change!</p>
+<p><b>Display Switching</b> - Whether or not to display the switching text at the end of round.</p>
+<p><b>Cancel Allowed</b> - Whether or not you allow anyone to cancel the automatic round starting.</p>
 <p><b>Cancel Command</b> - Command to cancel automatic round start (Anyone can issue this)!</p>
 <h3>Debug</h3>
 <p><b>Debug mode</b> - If set to true, commands are not issued and are only displayed in the debug console.</p>
@@ -149,6 +155,11 @@ namespace PRoConEvents
 <p>Developed by xfileFIN</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>0.0.0.4 (19.04.2017)</h4>
+	- Added: option to not allow automatic round starting<br/>
+	- Added: option to not display automatic round starting text<br/>
+</blockquote>
+
 <blockquote><h4>0.0.0.3 (02.04.2017)</h4>
 	- Fixed: forgot to update players list on join<br/>
 </blockquote>
@@ -175,7 +186,11 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable("Debug|Debug mode", this._debugMode.GetType(), this._debugMode));
             lstReturn.Add(new CPluginVariable("1.1 Global Settings|Automatically early start next round", this._autoStart.GetType(), this._autoStart));
             lstReturn.Add(new CPluginVariable("1.2 Automatic Round Start|Wait Time [Seconds]", this._autoStartDelay.GetType(), this._autoStartDelay));
-            lstReturn.Add(new CPluginVariable("1.2 Automatic Round Start|Cancel Command", this._cancelCommand.GetType(), this._cancelCommand));
+            lstReturn.Add(new CPluginVariable("1.2 Automatic Round Start|Display Switching", this._displaySwitching.GetType(), this._displaySwitching));
+            lstReturn.Add(new CPluginVariable("1.2 Automatic Round Start|Cancel Allowed", this._noCancelAllowed.GetType(), this._noCancelAllowed));
+
+            if (!this._noCancelAllowed)
+                lstReturn.Add(new CPluginVariable("1.2 Automatic Round Start|Cancel Command", this._cancelCommand.GetType(), this._cancelCommand));
 
             return lstReturn;
         }
@@ -205,6 +220,16 @@ namespace PRoConEvents
                 int.TryParse(strValue, out tmp);
                 this._autoStartDelay = tmp;
             }
+            else if (Regex.Match(strVariable, @"Display Switching").Success) {
+                bool tmp = false;
+                bool.TryParse(strValue, out tmp);
+                this._displaySwitching = tmp;
+            }
+            else if (Regex.Match(strVariable, @"Cancel Allowed").Success) {
+                bool tmp = false;
+                bool.TryParse(strValue, out tmp);
+                this._noCancelAllowed = tmp;
+            }
             else if (Regex.Match(strVariable, @"Cancel Command").Success) {
                 this._cancelCommand = strValue;
             }
@@ -215,7 +240,7 @@ namespace PRoConEvents
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion) {
             server_host = strHostName;
             server_port = strPort;
-            this.RegisterEvents(this.GetType().Name, "OnPlayerAuthenticated","OnListPlayers","OnPlayerLeft","OnGlobalChat","OnTeamChat","OnSquadChat","OnRoundOverPlayers","OnRoundOverTeamScores","OnLevelLoaded");
+            this.RegisterEvents(this.GetType().Name, "OnPlayerAuthenticated", "OnListPlayers", "OnPlayerLeft", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnRoundOverPlayers", "OnRoundOverTeamScores", "OnLevelLoaded");
         }
         #endregion
 
@@ -283,10 +308,13 @@ namespace PRoConEvents
                 {
                     Thread.Sleep(10 * 1000);
                     this._autoStartAfterDelay = true;
-                    if (!this._debugMode)
-                        ServerCommand("admin.say", StripModifiers(E(String.Format("Switching to next round in {1} seconds (Use !{0} to cancel)", this._cancelCommand, this._autoStartDelay))), "all");
+                    if (!this._debugMode) {
+                        if (this._displaySwitching)
+                            ServerCommand("admin.say", StripModifiers(E(String.Format("Switching to next round in {1} seconds{0}", ((this._noCancelAllowed) ? "." : String.Format(" (Use !{0} to cancel)", this._cancelCommand), this._autoStartDelay))), "all");
+                    }
                     else
                         DebugWrite(StripModifiers(E(String.Format("^1(DEBUG):^n Switching to next round in {1} seconds (Use !{0} to cancel)", this._cancelCommand, this._autoStartDelay))), 1);
+
 
                     Thread.Sleep(this._autoStartDelay * 1000);
                     if (!this._autoStartAfterDelay || !this._autoStart) {
@@ -364,6 +392,9 @@ namespace PRoConEvents
                     delayed.Start();
                 }
                 else if (cmd_cancelRS.Success) {
+                    if (this._noCancelAllowed)
+                        return;
+
                     if (!this._autoStartAfterDelay) {
                         if (!this._debugMode)
                             ServerCommand("admin.say", StripModifiers(E("Automatic next round start was already canceled!")), "all");
@@ -382,7 +413,7 @@ namespace PRoConEvents
             catch (Exception e) {
                 DebugWrite(e.ToString(), 2);
             }
-        } 
+        }
         #endregion
 
         #region Helpers (Some from Insane Limits)
